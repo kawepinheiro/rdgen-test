@@ -661,6 +661,8 @@ jobs:
             $env:VERSION = "1.99.0"
           }
           pushd ./res/msi
+          # Patch preprocess.py to use current date instead of running the exe (which fails on the runner)
+          (Get-Content preprocess.py) -replace 'g_build_date = read_process_output\("--build-date"\)', 'g_build_date = __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")' | Set-Content preprocess.py
           python preprocess.py --app-name "$myappname" --arp -v "$env:VERSION" -d ../../rustdesk
           nuget restore msi.sln
           msbuild msi.sln -p:Configuration=Release -p:Platform=x64 /p:TargetVersion=Windows10
