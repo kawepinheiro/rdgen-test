@@ -107,12 +107,6 @@ jobs:
       matrix:
         job:
           - {
-              target: i686-pc-windows-msvc,
-              os: windows-2022,
-              arch: x86,
-              vcpkg-triplet: x86-windows-static,
-            }
-          - {
               target: x86_64-pc-windows-msvc,
               os: windows-2022,
               arch: x86_64,
@@ -404,7 +398,8 @@ jobs:
             Copy-Item ./res/64x64.png ./res/64x64.png.bak
             Copy-Item ./res/128x128.png ./res/128x128.png.bak
             Copy-Item ".\res\128x128@2x.png" ".\res\128x128@2x.png.bak"
-            magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
+            magick ./res/icon.png -resize "256x256>" ./res/icon_upscaled.png
+            magick ./res/icon_upscaled.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
             Copy-Item ./res/icon.ico ./res/tray-icon.ico
             magick ./res/icon.png -resize 32x32 ./res/32x32.png
             magick ./res/icon.png -resize 64x64 ./res/64x64.png
@@ -661,6 +656,10 @@ jobs:
         run: |
           $myappname = "${{ inputs.appname }}" -replace '\s','_'
           cp "rustdesk/${{ inputs.appname }}.exe" "rustdesk/${myappname}.exe" -ErrorAction SilentlyContinue
+          # Fix VERSION for NuGet/WiX (must be valid semver, not 'master')
+          if ($env:VERSION -eq "master") {
+            $env:VERSION = "1.99.0"
+          }
           pushd ./res/msi
           python preprocess.py --app-name "$myappname" --arp -d ../../rustdesk
           nuget restore msi.sln
@@ -754,3 +753,5 @@ jobs:
           method: 'POST'
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ inputs.uuid }}", "status": "Generation cancelled, try again"}'
+
+
