@@ -373,26 +373,46 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          mv ./res/icon.ico ./res/icon.ico.bak
-          mv ./res/icon.png ./res/icon.png.bak
-          mv ./res/tray-icon.ico ./res/tray-icon.ico.bak
+          cp ./res/icon.ico ./res/icon.ico.bak
+          cp ./res/icon.png ./res/icon.png.bak
+          cp ./res/tray-icon.ico ./res/tray-icon.ico.bak
 
       - name: magick stuff
         if: ${{ inputs.iconlink != 'false' }}
         continue-on-error: true
         run: |
-          Invoke-WebRequest -Uri ${{ fromJson(inputs.iconlink).url }}/get_png?filename=${{ fromJson(inputs.iconlink).file }}"&"uuid=${{ fromJson(inputs.iconlink).uuid }} -OutFile ./res/icon.png 
-          mv ./res/32x32.png ./res/32x32.png.bak
-          mv ./res/64x64.png ./res/64x64.png.bak
-          mv ./res/128x128.png ./res/128x128.png.bak
-          mv ./res/128x128@2x.png ./res/128x128@2x.png.bak
-          magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
-          cp ./res/icon.ico ./res/tray-icon.ico
-          magick ./res/icon.png -resize 32x32 ./res/32x32.png
-          magick ./res/icon.png -resize 64x64 ./res/64x64.png
-          magick ./res/icon.png -resize 128x128 ./res/128x128.png
-          magick ./res/128x128.png -resize 200% ./res/128x128@2x.png
-
+          $downloaded = $false
+          try {
+            Invoke-WebRequest -Uri ${{ fromJson(inputs.iconlink).url }}/get_png?filename=${{ fromJson(inputs.iconlink).file }}"&"uuid=${{ fromJson(inputs.iconlink).uuid }} -OutFile ./res/icon_dl.png -TimeoutSec 30
+            if ((Test-Path ./res/icon_dl.png) -and ((Get-Item ./res/icon_dl.png).Length -gt 100)) {
+              Copy-Item ./res/icon_dl.png ./res/icon.png -Force
+              $downloaded = $true
+            }
+          } catch {
+            Write-Host "Icon download failed, trying base64 from extras..."
+          }
+          if (-not $downloaded) {
+            $extras = '${{ inputs.extras }}' | ConvertFrom-Json
+            if ($extras.iconBase64) {
+              [System.IO.File]::WriteAllBytes("./res/icon.png", [System.Convert]::FromBase64String($extras.iconBase64))
+              $downloaded = $true
+              Write-Host "Icon loaded from base64 data"
+            }
+          }
+          if ($downloaded) {
+            Copy-Item ./res/32x32.png ./res/32x32.png.bak
+            Copy-Item ./res/64x64.png ./res/64x64.png.bak
+            Copy-Item ./res/128x128.png ./res/128x128.png.bak
+            Copy-Item ".\res\128x128@2x.png" ".\res\128x128@2x.png.bak"
+            magick ./res/icon.png -define icon:auto-resize=256,64,48,32,16 ./res/icon.ico
+            Copy-Item ./res/icon.ico ./res/tray-icon.ico
+            magick ./res/icon.png -resize 32x32 ./res/32x32.png
+            magick ./res/icon.png -resize 64x64 ./res/64x64.png
+            magick ./res/icon.png -resize 128x128 ./res/128x128.png
+            magick ./res/128x128.png -resize 200% ".\res\128x128@2x.png"
+          } else {
+            Write-Host "No custom icon available, using default RustDesk icons"
+          }
 
       - name: ui.rs icon
         if: ${{ inputs.iconlink != 'false' }}
@@ -531,7 +551,25 @@ jobs:
         if: ${{ inputs.logolink != 'false' }}
         continue-on-error: true
         run: |
-          Invoke-WebRequest -Uri ${{ fromJson(inputs.logolink).url }}/get_png?filename=${{ fromJson(inputs.logolink).file }}"&"uuid=${{ fromJson(inputs.logolink).uuid }} -OutFile ./rustdesk/data/flutter_assets/assets/logo.png
+          $downloaded = $false
+          try {
+            Invoke-WebRequest -Uri ${{ fromJson(inputs.logolink).url }}/get_png?filename=${{ fromJson(inputs.logolink).file }}"&"uuid=${{ fromJson(inputs.logolink).uuid }} -OutFile ./rustdesk/data/flutter_assets/assets/logo_dl.png -TimeoutSec 30
+            if ((Test-Path ./rustdesk/data/flutter_assets/assets/logo_dl.png) -and ((Get-Item ./rustdesk/data/flutter_assets/assets/logo_dl.png).Length -gt 100)) {
+              Copy-Item ./rustdesk/data/flutter_assets/assets/logo_dl.png ./rustdesk/data/flutter_assets/assets/logo.png -Force
+              $downloaded = $true
+            }
+          } catch {
+            Write-Host "Logo download failed, trying base64 from extras..."
+          }
+          if (-not $downloaded) {
+            $extras = '${{ inputs.extras }}' | ConvertFrom-Json
+            if ($extras.logoBase64) {
+              [System.IO.File]::WriteAllBytes("./rustdesk/data/flutter_assets/assets/logo.png", [System.Convert]::FromBase64String($extras.logoBase64))
+              Write-Host "Logo loaded from base64 data"
+            } else {
+              Write-Host "No custom logo available, using default"
+            }
+          }
 
 
       - name: find Runner.res
