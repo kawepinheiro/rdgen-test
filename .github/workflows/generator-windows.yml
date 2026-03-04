@@ -263,9 +263,42 @@ jobs:
 
       - name: allow custom.txt
         continue-on-error: true
+        shell: python
         run: |
-          Invoke-WebRequest -Uri https://raw.githubusercontent.com/bryangerlach/rdgen/refs/heads/master/.github/patches/allowCustom.diff -OutFile allowCustom.diff
-          git apply allowCustom.diff
+          import re
+          with open('src/common.rs', 'r', encoding='utf-8') as f:
+              content = f.read()
+          old_block = (
+              '    const KEY: &str = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=";\n'
+              '    let Some(pk) = get_rs_pk(KEY) else {\n'
+              '        log::error!("Failed to parse public key of custom client");\n'
+              '        return;\n'
+              '    };\n'
+              '    let Ok(data) = sign::verify(&data, &pk) else {\n'
+              '        log::error!("Failed to dec custom client config");\n'
+              '        return;\n'
+              '    };'
+          )
+          new_block = (
+              '    // Signature verification disabled for custom build\n'
+              '    // const KEY: &str = "...";\n'
+              '    // sign::verify disabled'
+          )
+          if old_block in content:
+              content = content.replace(old_block, new_block)
+              with open('src/common.rs', 'w', encoding='utf-8') as f:
+                  f.write(content)
+              print("OK: custom.txt signature verification bypassed")
+          else:
+              print("WARN: signature block not found, trying git apply fallback")
+              import subprocess
+              subprocess.run(["powershell", "-Command",
+                  "Invoke-WebRequest -Uri https://raw.githubusercontent.com/bryangerlach/rdgen/refs/heads/master/.github/patches/allowCustom.diff -OutFile allowCustom.diff; git apply allowCustom.diff"],
+                  check=False)
+
+      - name: remove setup server tip
+        continue-on-error: true
+        run: |
           Invoke-WebRequest -Uri https://raw.githubusercontent.com/bryangerlach/rdgen/refs/heads/master/.github/patches/removeSetupServerTip.diff -OutFile removeSetupServerTip.diff
           git apply removeSetupServerTip.diff
 
