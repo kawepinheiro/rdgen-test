@@ -714,19 +714,41 @@ jobs:
         run: |
           mv ./SignOutput/rustdesk.msi "./SignOutput/${{ inputs.filename }}.msi" || echo "rustdesk"
 
+      - name: debug list SignOutput
+        if: ${{ fromJson(inputs.extras).rdgen == 'true' }}
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "=== SignOutput contents ==="
+          ls -la ./SignOutput/ || echo "SignOutput directory not found"
+
       - name: send file to rdgen server
         if: ${{ fromJson(inputs.extras).rdgen == 'true' }}
         shell: bash
         run: |
-          curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "file=@./SignOutput/${{ inputs.filename }}.exe" -F "uuid=${{ inputs.uuid }}" ${{ secrets.GENURL }}/save_custom_client
-          curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "file=@./SignOutput/${{ inputs.filename }}.msi" -F "uuid=${{ inputs.uuid }}" ${{ secrets.GENURL }}/save_custom_client || true
+          if [ -f "./SignOutput/${{ inputs.filename }}.exe" ]; then
+            echo "Uploading EXE..."
+            curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "uuid=${{ inputs.uuid }}" -F "file=@./SignOutput/${{ inputs.filename }}.exe" ${{ secrets.GENURL }}/save_custom_client
+          else
+            echo "WARNING: EXE file not found at ./SignOutput/${{ inputs.filename }}.exe"
+          fi
+          if [ -f "./SignOutput/${{ inputs.filename }}.msi" ]; then
+            echo "Uploading MSI..."
+            curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "uuid=${{ inputs.uuid }}" -F "file=@./SignOutput/${{ inputs.filename }}.msi" ${{ secrets.GENURL }}/save_custom_client
+          else
+            echo "MSI not available, skipping"
+          fi
 
       - name: send file to api server
         if: ${{ fromJson(inputs.extras).rdgen == 'false' }}
         shell: bash
         run: |
-          curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "file=@./SignOutput/${{ inputs.filename }}.exe" ${{ inputs.apiServer }}/api/save_custom_client
-          curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "file=@./SignOutput/${{ inputs.filename }}.msi" ${{ inputs.apiServer }}/api/save_custom_client || true
+          if [ -f "./SignOutput/${{ inputs.filename }}.exe" ]; then
+            curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "uuid=${{ inputs.uuid }}" -F "file=@./SignOutput/${{ inputs.filename }}.exe" ${{ inputs.apiServer }}/api/save_custom_client
+          fi
+          if [ -f "./SignOutput/${{ inputs.filename }}.msi" ]; then
+            curl -i -X POST -H "Content-Type: multipart/form-data" -H "Authorization: Bearer ${{ fromJson(inputs.extras).token }}" -F "uuid=${{ inputs.uuid }}" -F "file=@./SignOutput/${{ inputs.filename }}.msi" ${{ inputs.apiServer }}/api/save_custom_client
+          fi
 
       - name: Report Status
         uses: fjogeleit/http-request-action@v1
@@ -753,5 +775,6 @@ jobs:
           method: 'POST'
           customHeaders: '{"Content-Type": "application/json"}'
           data: '{"uuid": "${{ inputs.uuid }}", "status": "Generation cancelled, try again"}'
+
 
 
