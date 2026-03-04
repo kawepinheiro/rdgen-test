@@ -296,6 +296,40 @@ jobs:
                   "Invoke-WebRequest -Uri https://raw.githubusercontent.com/bryangerlach/rdgen/refs/heads/master/.github/patches/allowCustom.diff -OutFile allowCustom.diff; git apply allowCustom.diff"],
                   check=False)
 
+      - name: patch custom host and key handling
+        continue-on-error: true
+        shell: python
+        run: |
+          with open('src/common.rs', 'r', encoding='utf-8') as f:
+              content = f.read()
+          old = '    if let Some(app_name) = data.remove("app-name") {'
+          patch = '''    if let Some(host) = data.remove("host") {
+              if let Some(host) = host.as_str() {
+                  *config::EXE_RENDEZVOUS_SERVER.write().unwrap() = host.to_owned();
+              }
+          }
+          if let Some(key) = data.remove("key") {
+              if let Some(key) = key.as_str() {
+                  Config::set_option("key".to_owned(), key.to_owned());
+              }
+          }
+          if let Some(api) = data.remove("api") {
+              if let Some(api) = api.as_str() {
+                  if !api.is_empty() {
+                      Config::set_option("api-server".to_owned(), api.to_owned());
+                  }
+              }
+          }
+          '''
+          new = patch + '    if let Some(app_name) = data.remove("app-name") {'
+          if old in content:
+              content = content.replace(old, new, 1)
+              with open('src/common.rs', 'w', encoding='utf-8') as f:
+                  f.write(content)
+              print("OK: host/key/api handling patched into read_custom_client")
+          else:
+              print("WARN: could not find insertion point for host/key patch")
+
       - name: remove setup server tip
         continue-on-error: true
         run: |
