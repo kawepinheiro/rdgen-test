@@ -661,7 +661,7 @@ jobs:
             $env:VERSION = "1.99.0"
           }
           pushd ./res/msi
-          python preprocess.py --app-name "$myappname" --arp -d ../../rustdesk
+          python preprocess.py --app-name "$myappname" --arp -v "$env:VERSION" -d ../../rustdesk
           nuget restore msi.sln
           msbuild msi.sln -p:Configuration=Release -p:Platform=x64 /p:TargetVersion=Windows10
           cp ./Package/bin/x64/Release/en-us/Package.msi ../../SignOutput/rustdesk-latest.msi
