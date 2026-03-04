@@ -461,15 +461,10 @@ jobs:
         if: ${{ fromJson(inputs.extras).runasadmin == 'true' }}
         shell: python
         run: |
-          manifest = './flutter/windows/runner/runner.exe.manifest'
-          with open(manifest, 'r') as f:
-              content = f.read()
-          trustinfo = '  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">\n    <security>\n      <requestedPrivileges>\n        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>\n      </requestedPrivileges>\n    </security>\n  </trustInfo>\n'
-          content = content.replace('</assembly>', trustinfo + '</assembly>')
-          with open(manifest, 'w') as f:
-              f.write(content)
-          print("Manifest updated for admin elevation")
-          
+          cmake_path = './flutter/windows/runner/CMakeLists.txt'
+          with open(cmake_path, 'a') as f:
+              f.write('\ntarget_link_options(${BINARY_NAME} PRIVATE /MANIFESTUAC:level=requireAdministrator /MANIFESTUAC:uiAccess=false)\n')
+          print("CMakeLists.txt updated - UAC elevation via linker flags")
 
       - name: Report Status
         uses: fjogeleit/http-request-action@v1
