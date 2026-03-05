@@ -214,6 +214,47 @@ jobs:
           sed -i -e 's|reg delete HKEY_CLASSES_ROOT\\\\.{ext} /f|reg delete \\\"HKEY_CLASSES_ROOT\\\\.{ext}\\\" /f|' ./src/platform/windows.rs
           sed -i -e 's|reg delete HKEY_CLASSES_ROOT\\\\{ext} /f|reg delete \\\"HKEY_CLASSES_ROOT\\\\{ext}\\\" /f|' ./src/platform/windows.rs
           
+      - name: fix sc and taskkill commands for appname with space
+        if: contains(inputs.appname, ' ')
+        continue-on-error: true
+        shell: python
+        run: |
+          import re
+          with open('./src/platform/windows.rs', 'r', encoding='utf-8') as f:
+              content = f.read()
+          original = content
+          # Fix: sc create {app_name} -> sc create \"{app_name}\"
+          content = content.replace(
+              'sc create {app_name} binpath=',
+              'sc create \\"{app_name}\\" binpath='
+          )
+          # Fix: sc start {app_name} -> sc start \"{app_name}\"
+          content = content.replace(
+              'sc start {app_name}',
+              'sc start \\"{app_name}\\"'
+          )
+          # Fix: sc stop {app_name} -> sc stop \"{app_name}\"
+          content = content.replace(
+              'sc stop {app_name}',
+              'sc stop \\"{app_name}\\"'
+          )
+          # Fix: sc delete {app_name} -> sc delete \"{app_name}\"
+          content = content.replace(
+              'sc delete {app_name}',
+              'sc delete \\"{app_name}\\"'
+          )
+          # Fix: taskkill /F /IM {app_name}.exe -> taskkill /F /IM \"{app_name}.exe\"
+          content = content.replace(
+              'taskkill /F /IM {app_name}.exe',
+              'taskkill /F /IM \\"{app_name}.exe\\"'
+          )
+          if content != original:
+              with open('./src/platform/windows.rs', 'w', encoding='utf-8') as f:
+                  f.write(content)
+              print("OK: sc/taskkill commands fixed for app name with spaces")
+          else:
+              print("WARN: no sc/taskkill patterns found to fix")
+
       - name: change company name
         if: fromJson(inputs.extras).compname != 'Purslane Ltd'
         continue-on-error: true
